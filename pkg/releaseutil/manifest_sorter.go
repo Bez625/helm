@@ -166,6 +166,7 @@ func (file *manifestFile) sort(result *result) error {
 		}
 
 		hw := calculateHookWeight(entry)
+		logOutput := shouldLogOutput(entry)
 
 		h := &release.Hook{
 			Name:           entry.Metadata.Name,
@@ -175,6 +176,7 @@ func (file *manifestFile) sort(result *result) error {
 			Events:         []release.HookEvent{},
 			Weight:         hw,
 			DeletePolicies: []release.HookDeletePolicy{},
+			ShouldOutputLogs: logOutput,
 		}
 
 		isUnknownHook := false
@@ -230,4 +232,14 @@ func operateAnnotationValues(entry SimpleHead, annotation string, operate func(p
 			operate(dp)
 		}
 	}
+}
+
+// shouldLogOutput
+func shouldLogOutput(entry SimpleHead) bool {
+	if outputLogs, ok := entry.Metadata.Annotations[release.HookOutputLogAnnotation]; ok {
+		if outputLogs == "true" {
+			return true
+		}
+	}
+	return false
 }

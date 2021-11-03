@@ -18,6 +18,7 @@ package kube
 
 import (
 	"io"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -68,6 +69,12 @@ type Interface interface {
 
 	// IsReachable checks whether the client is able to connect to the cluster.
 	IsReachable() error
+
+	// GetPodList List all pods for a particular job name
+	GetPodList(namespace string, listOptions metav1.ListOptions) (*v1.PodList, error)
+
+	// OutputContainerLogsForPodList output the logs for a pod list
+	OutputContainerLogsForPodList(podList *v1.PodList, namespace string)
 }
 
 // InterfaceExt is introduced to avoid breaking backwards compatibility for Interface implementers.

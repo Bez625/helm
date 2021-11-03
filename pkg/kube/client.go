@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -618,6 +619,41 @@ func (c *Client) waitForPodSuccess(obj runtime.Object, name string) (bool, error
 	}
 
 	return false, nil
+}
+
+// GetPodList uses the build in
+func (c *Client) GetPodList(namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
+	podList, err := c.kubeClient.CoreV1().Pods(namespace).List(context.Background(), listOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod list with options: %+v with error: %v", listOptions, err)
+	}
+	return podList, nil
+}
+
+// OutputContainerLogsForPodList is a helper that outputs logs for a list of pods
+func (c *Client) OutputContainerLogsForPodList(podList *v1.PodList, namespace string) {
+	for _, pod := range podList.Items {
+		for _, container := range pod.Spec.Containers {
+			options := &v1.PodLogOptions{
+				Container: container.Name,
+			}
+			request := c.kubeClient.CoreV1().Pods(namespace).GetLogs(pod.Name, options)
+			readCloser, err := request.Stream(context.Background())
+			if err != nil {
+				c.Log("Failed to stream pod logs for pod: %s, container: %s", pod.Name, container.Name)
+				break
+			}
+			log.Printf("Logs for pod: %s, container: %s\n", pod.Name, container.Name)
+			_, err = io.Copy(log.Writer(), readCloser)
+			if err != nil {
+				c.Log("Failed to copy IO from logs for pod: %s, container: %s", pod.Name, container.Name)
+			}
+			err = readCloser.Close()
+			if err != nil {
+				c.Log("Failed to close reader for pod: %s, container: %s", pod.Name, container.Name)
+			}
+		}
+	}
 }
 
 // scrubValidationError removes kubectl info from the message.

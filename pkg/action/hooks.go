@@ -17,6 +17,8 @@ package action
 
 import (
 	"bytes"
+	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
 	"time"
 
@@ -86,6 +88,10 @@ func (cfg *Configuration) execHook(rl *release.Release, hook release.HookEvent, 
 		// Mark hook as succeeded or failed
 		if err != nil {
 			h.LastRun.Phase = release.HookPhaseFailed
+			// If a hook is failed, check the annotation of the hook to determine if we should copy the logs client side
+			if err := cfg.outputLogsByPolicy(h, rl.Namespace); err != nil {
+				return err
+			}
 			// If a hook is failed, check the annotation of the hook to determine whether the hook should be deleted
 			// under failed condition. If so, then clear the corresponding resource object in the hook
 			if err := cfg.deleteHookByPolicy(h, release.HookFailed); err != nil {
@@ -148,4 +154,31 @@ func hookHasDeletePolicy(h *release.Hook, policy release.HookDeletePolicy) bool 
 		}
 	}
 	return false
+}
+
+// outputLogsByPolicy outputs a pods logs if the hook policy instructs it to
+func (cfg *Configuration) outputLogsByPolicy(h *release.Hook, namespace string) error {
+	if !h.ShouldOutputLogs {
+		return nil
+	}
+	switch h.Kind {
+	case "Job":
+		listOptions := metav1.ListOptions{LabelSelector: fmt.Sprintf("job-name=%s", h.Name)}
+		podList, err := cfg.KubeClient.GetPodList(namespace, listOptions)
+		if err != nil {
+			return err
+		}
+		cfg.KubeClient.OutputContainerLogsForPodList(podList, namespace)
+		return nil
+	case "Pod":
+		listOptions := metav1.ListOptions{FieldSelector: fmt.Sprintf("metadata.name=%s", h.Name)}
+		podList, err := cfg.KubeClient.GetPodList(namespace, listOptions)
+		if err != nil {
+			return err
+		}
+		cfg.KubeClient.OutputContainerLogsForPodList(podList, namespace)
+		return nil
+	default:
+		return nil
+	}
 }

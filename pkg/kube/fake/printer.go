@@ -18,6 +18,7 @@ package fake
 
 import (
 	"io"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"time"
 
@@ -99,6 +100,16 @@ func (p *PrintingKubeClient) Build(_ io.Reader, _ bool) (kube.ResourceList, erro
 // WaitAndGetCompletedPodPhase implements KubeClient WaitAndGetCompletedPodPhase.
 func (p *PrintingKubeClient) WaitAndGetCompletedPodPhase(_ string, _ time.Duration) (v1.PodPhase, error) {
 	return v1.PodSucceeded, nil
+}
+
+// GetPodList implements KubeClient GetPodListForSelector.
+func (p *PrintingKubeClient) GetPodList(_ string, _ metav1.ListOptions) (*v1.PodList, error) {
+	return &v1.PodList{}, nil
+}
+
+// OutputContainerLogsForPodList implements KubeClient OutputContainerLogsForPodList.
+func (p *PrintingKubeClient) OutputContainerLogsForPodList(_ *v1.PodList, _ string) {
+
 }
 
 func bufferize(resources kube.ResourceList) io.Reader {
